@@ -21,6 +21,19 @@
 		regulator-max-microvolt = <12000000>;
 	};
 
+	usb20_reset: usb20-reset-regulator {
+		compatible = "regulator-fixed";
+		enable-active-high;
+		gpio = <&gpio0 RK_PC0 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb20_reset_pin>;
+		regulator-name = "usb20_reset";
+		regulator-always-on;
+		regulator-boot-on;
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+	};
+
 	hdmi_sound: hdmi-sound {
 		compatible = "simple-audio-card";
 		simple-audio-card,format = "i2s";
@@ -149,6 +162,14 @@
 	};
 };
 
+&pinctrl {
+	usb {
+		usb20_reset_pin: usb20-reset {
+			rockchip,pins = <0 RK_PC0 RK_FUNC_GPIO &pcfg_pull_up>;
+		};
+	};
+};
+
 &gpio0 {
 	gpio-line-names =
 		/* GPIO0_A0-A3 */
@@ -157,7 +178,7 @@
 		"", "", "", "",
 
 		/* GPIO0_B0-B3 */
-		"PIN_26", "", "", "",
+		"", "", "", "",
 		/* GPIO0_B4-B7 */
 		"", "", "", "",
 
@@ -167,7 +188,7 @@
 		"", "", "", "",
 
 		/* GPIO0_D0-D3 */
-		"", "", "", "",
+		"PIN_10", "PIN_8", "", "",
 		/* GPIO0_D4-D7 */
 		"", "", "", "";
 };
@@ -221,9 +242,9 @@
 &gpio3 {
 	gpio-line-names =
 		/* GPIO3_A0-A3 */
-		"PIN_29", "PIN_18", "PIN_22", "",
+		"PIN_29", "PIN_18", "PIN_22", "PIN_12",
 		/* GPIO3_A4-A7 */
-		"PIN_36", "PIN_40", "PIN_38", "",
+		"PIN_35", "PIN_40", "PIN_38", "",
 
 		/* GPIO3_B0-B3 */
 		"", "PIN_13", "PIN_11", "PIN_28",
@@ -231,7 +252,7 @@
 		"PIN_27", "PIN_5", "PIN_3", "PIN_32",
 
 		/* GPIO3_C0-C3 */
-		"PIN_15", "PIN_16", "PIN_12", "PIN_35",
+		"PIN_15", "PIN_16", "PIN_26", "PIN_36",
 		/* GPIO3_C4-C7 */
 		"", "PIN_37", "", "",
 
