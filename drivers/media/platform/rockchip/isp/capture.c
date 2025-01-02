@@ -1544,6 +1544,101 @@ static int rkisp_querycap(struct file *file, void *priv,
 	return 0;
 }
 
+static int rkisp_g_parm(struct file *file, void *priv,
+                        struct v4l2_streamparm *parm)
+{
+    struct rkisp_stream *stream = video_drvdata(file);
+    struct rkisp_device *dev = stream->ispdev;
+    struct v4l2_subdev *csi_sd = dev->sensors[0].sd;
+    struct media_entity *entity = &csi_sd->entity;
+    struct v4l2_subdev *sensor_sd = NULL;
+    struct v4l2_subdev_frame_interval fi;
+    struct media_pad *pad;
+    int i, ret;
+
+    // Find sensor through CSI link
+    for (i = 0; i < entity->num_pads; i++) {
+        pad = &entity->pads[i];
+        if (pad->flags & MEDIA_PAD_FL_SINK) {
+            struct media_link *link;
+            list_for_each_entry(link, &pad->entity->links, list) {
+                if (link->sink == pad) {
+                    sensor_sd = media_entity_to_v4l2_subdev(link->source->entity);
+                    pr_info("g_parm: using sensor %s\n", link->source->entity->name);
+                    break;
+                }
+            }
+        }
+        if (sensor_sd)
+            break;
+    }
+
+    if (!sensor_sd)
+        return -ENODEV;
+
+    memset(&fi, 0, sizeof(fi));
+    ret = v4l2_subdev_call(sensor_sd, video, g_frame_interval, &fi);
+    pr_info("g_parm: subdev call returned %d\n", ret);
+    if (ret && ret != -ENOIOCTLCMD)
+        return ret;
+
+    parm->parm.capture.timeperframe = fi.interval;
+    parm->parm.capture.capability = V4L2_CAP_TIMEPERFRAME;
+
+    return 0;
+}
+
+static int rkisp_s_parm(struct file *file, void *priv,
+                        struct v4l2_streamparm *parm)
+{
+    struct rkisp_stream *stream = video_drvdata(file);
+    struct rkisp_device *dev = stream->ispdev;
+    struct v4l2_subdev *csi_sd = dev->sensors[0].sd;
+    struct media_entity *entity = &csi_sd->entity;
+    struct v4l2_subdev *sensor_sd = NULL;
+    struct v4l2_subdev_frame_interval fi;
+    struct media_pad *pad;
+    int i, ret;
+
+    // Find sensor through CSI link
+    for (i = 0; i < entity->num_pads; i++) {
+        pad = &entity->pads[i];
+        if (pad->flags & MEDIA_PAD_FL_SINK) {
+            struct media_link *link;
+            list_for_each_entry(link, &pad->entity->links, list) {
+                if (link->sink == pad) {
+                    sensor_sd = media_entity_to_v4l2_subdev(link->source->entity);
+                    pr_info("s_parm: using sensor %s\n", link->source->entity->name);
+                    break;
+                }
+            }
+        }
+        if (sensor_sd)
+            break;
+    }
+
+    if (!sensor_sd)
+        return -ENODEV;
+
+    // Initialize frame interval with requested value
+    memset(&fi, 0, sizeof(fi));
+    fi.interval = parm->parm.capture.timeperframe;
+
+    pr_info("s_parm: trying to set framerate %d/%d\n", 
+            fi.interval.denominator, fi.interval.numerator);
+
+    ret = v4l2_subdev_call(sensor_sd, video, s_frame_interval, &fi);
+    pr_info("s_parm: subdev call returned %d\n", ret);
+    if (ret && ret != -ENOIOCTLCMD)
+        return ret;
+
+    // Return the actual framerate that was set
+    parm->parm.capture.timeperframe = fi.interval;
+    parm->parm.capture.capability = V4L2_CAP_TIMEPERFRAME;
+
+    return 0;
+}
+
 static const struct v4l2_ioctl_ops rkisp_v4l2_ioctl_ops = {
 	.vidioc_reqbufs = vb2_ioctl_reqbufs,
 	.vidioc_querybuf = vb2_ioctl_querybuf,
@@ -1565,6 +1660,8 @@ static const struct v4l2_ioctl_ops rkisp_v4l2_ioctl_ops = {
 	.vidioc_enum_frameintervals = rkisp_enum_frameintervals,
 	.vidioc_enum_framesizes = rkisp_enum_framesizes,
 	.vidioc_default = rkisp_ioctl_default,
+	.vidioc_g_parm = rkisp_g_parm,
+    .vidioc_s_parm = rkisp_s_parm,
 };
 
 static void rkisp_buf_done_task(unsigned long arg)
